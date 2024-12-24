@@ -1,95 +1,216 @@
-// fixed.hpp
-
-#ifndef FIXED_HPP
-#define FIXED_HPP
+#pragma once
 
 #include <iostream>
 #include <type_traits>
 #include <cstdint>
-#include <cassert>
+#include <cmath>
 
-// Helper to select the appropriate integer type based on bit size
-template<size_t N>
-struct IntTypeSelector;
+template<size_t N, size_t K>
+struct FastFixed;
 
-template<>
-struct IntTypeSelector<8> {
-    using type = int8_t;
-};
+template<size_t N, size_t K>
+struct Fixed {
+    static_assert(N > K, "N must be greater than K");
+    static_assert(N <= 64, "N must be less than or equal to 64");
 
-template<>
-struct IntTypeSelector<16> {
-    using type = int16_t;
-};
+    static constexpr size_t bits = N;
+    static constexpr size_t frac = K;
 
-template<>
-struct IntTypeSelector<32> {
-    using type = int32_t;
-};
+    using StorageType = typename std::conditional<N <= 32, int32_t, int64_t>::type;
 
-template<>
-struct IntTypeSelector<64> {
-    using type = int64_t;
+    constexpr Fixed(int v = 0): v(static_cast<StorageType>(v) << K) {}
+    constexpr Fixed(float f): v(f * (StorageType(1) << K)) {}
+    constexpr Fixed(double f): v(f * (StorageType(1) << K)) {}
+
+    static constexpr Fixed from_raw(StorageType x) {
+        Fixed ret;
+        ret.v = x;
+        return ret;
+    }
+
+    StorageType v;
+
+    auto operator<=>(const Fixed&) const = default;
+    bool operator==(const Fixed&) const = default;
+
+    explicit operator float() const { return v / float(StorageType(1) << K); }
+    explicit operator double() const { return v / double(StorageType(1) << K); }
+
+    friend Fixed operator/(Fixed a, int b) {
+        return Fixed::from_raw(a.v / b);
+    }
+
+    friend Fixed operator*(Fixed a, int b) {
+        return Fixed::from_raw(a.v * b);
+    }
+
+    friend Fixed operator*(int a, Fixed b) {
+        return b * a;
+    }
+
+    template<size_t N2, size_t K2>
+    explicit operator Fixed<N2,K2>() const {
+        if constexpr (K2 >= K) {
+            return Fixed<N2,K2>::from_raw(static_cast<typename Fixed<N2,K2>::StorageType>(v) << (K2 - K));
+        } else {
+            constexpr size_t shift = K - K2;
+            if constexpr (shift >= N2) {
+                auto temp = v >> (shift - N2 + 1);
+                return Fixed<N2,K2>::from_raw(static_cast<typename Fixed<N2,K2>::StorageType>(temp) >> 1);
+            } else {
+                return Fixed<N2,K2>::from_raw(static_cast<typename Fixed<N2,K2>::StorageType>(v) >> shift);
+            }
+        }
+    }
+
+    template<size_t N2, size_t K2>
+    explicit operator FastFixed<N2,K2>() const {
+        if constexpr (K2 >= K) {
+            return FastFixed<N2,K2>::from_raw(static_cast<typename FastFixed<N2,K2>::StorageType>(v) << (K2 - K));
+        } else {
+            constexpr size_t shift = K - K2;
+            if constexpr (shift >= N2) {
+                auto temp = v >> (shift - N2 + 1);
+                return FastFixed<N2,K2>::from_raw(static_cast<typename FastFixed<N2,K2>::StorageType>(temp) >> 1);
+            } else {
+                return FastFixed<N2,K2>::from_raw(static_cast<typename FastFixed<N2,K2>::StorageType>(v) >> shift);
+            }
+        }
+    }
+    public:
+        static constexpr std::size_t kNValue = N;
+        static constexpr std::size_t kKValue = K;
+        static constexpr bool kFast          = false;
+
 };
 
 template<size_t N, size_t K>
-class Fixed {
-    static_assert(K < N, "Fractional bits must be less than total bits");
-    static_assert(N == 8 || N == 16 || N == 32 || N == 64, "N must be 8, 16, 32, or 64");
+Fixed<N,K> operator+(Fixed<N,K> a, Fixed<N,K> b) {
+    return Fixed<N,K>::from_raw(a.v + b.v);
+}
 
-    using StorageType = typename IntTypeSelector<N>::type;
-    StorageType value;
+template<size_t N, size_t K>
+Fixed<N,K> operator-(Fixed<N,K> a, Fixed<N,K> b) {
+    return Fixed<N,K>::from_raw(a.v - b.v);
+}
 
-public:
-    constexpr Fixed(float f) : value(static_cast<StorageType>(f * (1 << K))) {}
-    constexpr Fixed(double d) : value(static_cast<StorageType>(d * (1 << K))) {}
-
-    static constexpr Fixed from_raw(StorageType raw) {
-        Fixed fp;
-        fp.value = raw;
-        return fp;
+template<size_t N, size_t K>
+Fixed<N,K> operator*(Fixed<N,K> a, Fixed<N,K> b) {
+    using ST = typename Fixed<N,K>::StorageType;
+    if constexpr (N <= 32) {
+        return Fixed<N,K>::from_raw((static_cast<int64_t>(a.v) * b.v) >> K);
+    } else {
+        ST high = (a.v >> K) * b.v;
+        ST low = (a.v & ((ST(1) << K) - 1)) * b.v >> K;
+        return Fixed<N,K>::from_raw(high + low);
     }
+}
 
-    friend std::ostream& operator<<(std::ostream& os, const Fixed& fp) {
-        return os << static_cast<double>(fp.value) / (1 << K);
+template<size_t N, size_t K>
+Fixed<N,K> operator/(Fixed<N,K> a, Fixed<N,K> b) {
+    using ST = typename Fixed<N,K>::StorageType;
+    if constexpr (N <= 32) {
+        return Fixed<N,K>::from_raw((static_cast<int64_t>(a.v) << K) / b.v);
+    } else {
+        return Fixed<N,K>::from_raw((a.v << K) / b.v);
     }
+}
 
-    // Arithmetic operations
-    friend Fixed operator+(Fixed a, Fixed b) {
-        return Fixed::from_raw(a.value + b.value);
-    }
+template<size_t N, size_t K>
+Fixed<N,K> &operator+=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a + b; }
 
-    friend Fixed operator-(Fixed a, Fixed b) {
-        return Fixed::from_raw(a.value - b.value);
-    }
+template<size_t N, size_t K>
+Fixed<N,K> &operator-=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a - b; }
 
-    friend Fixed operator*(Fixed a, Fixed b) {
-        return Fixed::from_raw((static_cast<int64_t>(a.value) * b.value) >> K);
-    }
+template<size_t N, size_t K>
+Fixed<N,K> &operator*=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a * b; }
 
-    friend Fixed operator/(Fixed a, Fixed b) {
-        return Fixed::from_raw((static_cast<int64_t>(a.value) << K) / b.value);
-    }
+template<size_t N, size_t K>
+Fixed<N,K> &operator/=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a / b; }
 
-    Fixed& operator+=(Fixed b) {
-        value += b.value;
-        return *this;
-    }
+template<size_t N, size_t K>
+Fixed<N,K> operator-(Fixed<N,K> x) { return Fixed<N,K>::from_raw(-x.v); }
 
-    Fixed& operator-=(Fixed b) {
-        value -= b.value;
-        return *this;
-    }
+template<size_t N, size_t K>
+Fixed<N,K> abs(Fixed<N,K> x) {
+    Fixed<N,K> ret = x;
+    if (ret.v < 0) ret.v = -ret.v;
+    return ret;
+}
 
-    Fixed& operator*=(Fixed b) {
-        value = (static_cast<int64_t>(value) * b.value) >> K;
-        return *this;
-    }
+template<size_t N, size_t K>
+std::ostream &operator<<(std::ostream &out, Fixed<N,K> x) {
+    return out << static_cast<double>(x);
+}
 
-    Fixed& operator/=(Fixed b) {
-        value = (static_cast<int64_t>(value) << K) / b.value;
-        return *this;
-    }
-};
+template<size_t N, size_t K>
+Fixed<N,K> operator+(float a, Fixed<N,K> b) {
+    return Fixed<N,K>(a) + b;
+}
 
-#endif // FIXED_HPP
+template<size_t N, size_t K>
+Fixed<N,K> operator+(Fixed<N,K> a, float b) {
+    return a + Fixed<N,K>(b);
+}
+
+template<size_t N, size_t K>
+Fixed<N,K> operator-(float a, Fixed<N,K> b) {
+    return Fixed<N,K>(a) - b;
+}
+
+template<size_t N, size_t K>
+Fixed<N,K> operator-(Fixed<N,K> a, float b) {
+    return a - Fixed<N,K>(b);
+}
+
+template<size_t N, size_t K>
+Fixed<N,K> operator*(float a, Fixed<N,K> b) {
+    return Fixed<N,K>(a) * b;
+}
+
+template<size_t N, size_t K>
+Fixed<N,K> operator*(Fixed<N,K> a, float b) {
+    return a * Fixed<N,K>(b);
+}
+
+template<size_t N, size_t K>
+Fixed<N,K> operator/(float a, Fixed<N,K> b) {
+    return Fixed<N,K>(a) / b;
+}
+
+template<size_t N, size_t K>
+Fixed<N,K> operator/(Fixed<N,K> a, float b) {
+    return a / Fixed<N,K>(b);
+}
+
+template<size_t N, size_t K>
+Fixed<N,K>& operator+=(float& a, Fixed<N,K> b) {
+    a = static_cast<float>(Fixed<N,K>(a) + b);
+    return a;
+}
+
+template<size_t N, size_t K>
+float& operator-=(float& a, Fixed<N,K> b) {
+    a = static_cast<float>(Fixed<N,K>(a) - b);
+    return a;
+}
+
+template<size_t N, size_t K>
+Fixed<N,K> operator+(double a, Fixed<N,K> b) {
+    return Fixed<N,K>(a) + b;
+}
+
+template<size_t N, size_t K>
+Fixed<N,K>& operator-=(Fixed<N,K>& a, float b) {
+    return a = a - Fixed<N,K>(b);
+}
+
+template<size_t N, size_t K>
+Fixed<N,K>& operator+=(Fixed<N,K>& a, float b) {
+    return a = a + Fixed<N,K>(b);
+}
+
+template<size_t N, size_t K>
+Fixed<N,K>& operator*=(Fixed<N,K>& a, float b) {
+    return a = a * Fixed<N,K>(b);
+}

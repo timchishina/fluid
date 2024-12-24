@@ -33,23 +33,23 @@ struct Fixed {
     auto operator<=>(const Fixed&) const = default;
     bool operator==(const Fixed&) const = default;
 
-    explicit operator float() const { return v / float(StorageType(1) << K); }
-    explicit operator double() const { return v / double(StorageType(1) << K); }
+    explicit operator float() const noexcept{ return v / float(StorageType(1) << K); }
+    explicit operator double() const noexcept{ return v / double(StorageType(1) << K); }
 
-    friend Fixed operator/(Fixed a, int b) {
+    friend Fixed operator/(Fixed a, int b) noexcept{
         return Fixed::from_raw(a.v / b);
     }
 
-    friend Fixed operator*(Fixed a, int b) {
+    friend Fixed operator*(Fixed a, int b) noexcept{
         return Fixed::from_raw(a.v * b);
     }
 
-    friend Fixed operator*(int a, Fixed b) {
+    friend Fixed operator*(int a, Fixed b) noexcept{
         return b * a;
     }
 
     template<size_t N2, size_t K2>
-    explicit operator Fixed<N2,K2>() const {
+    explicit operator Fixed<N2,K2>() const noexcept{
         if constexpr (K2 >= K) {
             return Fixed<N2,K2>::from_raw(static_cast<typename Fixed<N2,K2>::StorageType>(v) << (K2 - K));
         } else {
@@ -64,7 +64,7 @@ struct Fixed {
     }
 
     template<size_t N2, size_t K2>
-    explicit operator FastFixed<N2,K2>() const {
+    explicit operator FastFixed<N2,K2>() const noexcept{
         if constexpr (K2 >= K) {
             return FastFixed<N2,K2>::from_raw(static_cast<typename FastFixed<N2,K2>::StorageType>(v) << (K2 - K));
         } else {
@@ -85,17 +85,17 @@ struct Fixed {
 };
 
 template<size_t N, size_t K>
-Fixed<N,K> operator+(Fixed<N,K> a, Fixed<N,K> b) {
+Fixed<N,K> operator+(Fixed<N,K> a, Fixed<N,K> b) noexcept{
     return Fixed<N,K>::from_raw(a.v + b.v);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator-(Fixed<N,K> a, Fixed<N,K> b) {
+Fixed<N,K> operator-(Fixed<N,K> a, Fixed<N,K> b) noexcept{
     return Fixed<N,K>::from_raw(a.v - b.v);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator*(Fixed<N,K> a, Fixed<N,K> b) {
+Fixed<N,K> operator*(Fixed<N,K> a, Fixed<N,K> b) noexcept{
     using ST = typename Fixed<N,K>::StorageType;
     if constexpr (N <= 32) {
         return Fixed<N,K>::from_raw((static_cast<int64_t>(a.v) * b.v) >> K);
@@ -107,7 +107,7 @@ Fixed<N,K> operator*(Fixed<N,K> a, Fixed<N,K> b) {
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator/(Fixed<N,K> a, Fixed<N,K> b) {
+Fixed<N,K> operator/(Fixed<N,K> a, Fixed<N,K> b) noexcept{
     using ST = typename Fixed<N,K>::StorageType;
     if constexpr (N <= 32) {
         return Fixed<N,K>::from_raw((static_cast<int64_t>(a.v) << K) / b.v);
@@ -117,100 +117,100 @@ Fixed<N,K> operator/(Fixed<N,K> a, Fixed<N,K> b) {
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> &operator+=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a + b; }
+Fixed<N,K> &operator+=(Fixed<N,K> &a, Fixed<N,K> b) noexcept{ return a = a + b; }
 
 template<size_t N, size_t K>
-Fixed<N,K> &operator-=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a - b; }
+Fixed<N,K> &operator-=(Fixed<N,K> &a, Fixed<N,K> b) noexcept{ return a = a - b; }
 
 template<size_t N, size_t K>
-Fixed<N,K> &operator*=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a * b; }
+Fixed<N,K> &operator*=(Fixed<N,K> &a, Fixed<N,K> b) noexcept{ return a = a * b; }
 
 template<size_t N, size_t K>
-Fixed<N,K> &operator/=(Fixed<N,K> &a, Fixed<N,K> b) { return a = a / b; }
+Fixed<N,K> &operator/=(Fixed<N,K> &a, Fixed<N,K> b) noexcept{ return a = a / b; }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator-(Fixed<N,K> x) { return Fixed<N,K>::from_raw(-x.v); }
+Fixed<N,K> operator-(Fixed<N,K> x) noexcept{ return Fixed<N,K>::from_raw(-x.v); }
 
 template<size_t N, size_t K>
-Fixed<N,K> abs(Fixed<N,K> x) {
+Fixed<N,K> abs(Fixed<N,K> x) noexcept{
     Fixed<N,K> ret = x;
     if (ret.v < 0) ret.v = -ret.v;
     return ret;
 }
 
 template<size_t N, size_t K>
-std::ostream &operator<<(std::ostream &out, Fixed<N,K> x) {
+std::ostream &operator<<(std::ostream &out, Fixed<N,K> x) noexcept{
     return out << static_cast<double>(x);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator+(float a, Fixed<N,K> b) {
+Fixed<N,K> operator+(float a, Fixed<N,K> b) noexcept{
     return Fixed<N,K>(a) + b;
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator+(Fixed<N,K> a, float b) {
+Fixed<N,K> operator+(Fixed<N,K> a, float b) noexcept{
     return a + Fixed<N,K>(b);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator-(float a, Fixed<N,K> b) {
+Fixed<N,K> operator-(float a, Fixed<N,K> b) noexcept{
     return Fixed<N,K>(a) - b;
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator-(Fixed<N,K> a, float b) {
+Fixed<N,K> operator-(Fixed<N,K> a, float b) noexcept{
     return a - Fixed<N,K>(b);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator*(float a, Fixed<N,K> b) {
+Fixed<N,K> operator*(float a, Fixed<N,K> b) noexcept{
     return Fixed<N,K>(a) * b;
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator*(Fixed<N,K> a, float b) {
+Fixed<N,K> operator*(Fixed<N,K> a, float b) noexcept{
     return a * Fixed<N,K>(b);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator/(float a, Fixed<N,K> b) {
+Fixed<N,K> operator/(float a, Fixed<N,K> b) noexcept{
     return Fixed<N,K>(a) / b;
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator/(Fixed<N,K> a, float b) {
+Fixed<N,K> operator/(Fixed<N,K> a, float b) noexcept{
     return a / Fixed<N,K>(b);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K>& operator+=(float& a, Fixed<N,K> b) {
+Fixed<N,K>& operator+=(float& a, Fixed<N,K> b) noexcept{
     a = static_cast<float>(Fixed<N,K>(a) + b);
     return a;
 }
 
 template<size_t N, size_t K>
-float& operator-=(float& a, Fixed<N,K> b) {
+float& operator-=(float& a, Fixed<N,K> b) noexcept{
     a = static_cast<float>(Fixed<N,K>(a) - b);
     return a;
 }
 
 template<size_t N, size_t K>
-Fixed<N,K> operator+(double a, Fixed<N,K> b) {
+Fixed<N,K> operator+(double a, Fixed<N,K> b) noexcept{
     return Fixed<N,K>(a) + b;
 }
 
 template<size_t N, size_t K>
-Fixed<N,K>& operator-=(Fixed<N,K>& a, float b) {
+Fixed<N,K>& operator-=(Fixed<N,K>& a, float b) noexcept{
     return a = a - Fixed<N,K>(b);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K>& operator+=(Fixed<N,K>& a, float b) {
+Fixed<N,K>& operator+=(Fixed<N,K>& a, float b) noexcept{
     return a = a + Fixed<N,K>(b);
 }
 
 template<size_t N, size_t K>
-Fixed<N,K>& operator*=(Fixed<N,K>& a, float b) {
+Fixed<N,K>& operator*=(Fixed<N,K>& a, float b) noexcept{
     return a = a * Fixed<N,K>(b);
 }

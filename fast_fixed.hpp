@@ -36,23 +36,23 @@ struct FastFixed {
     auto operator<=>(const FastFixed&) const = default;
     bool operator==(const FastFixed&) const = default;
 
-    explicit operator float() const { return v / float(StorageType(1) << K); }
-    explicit operator double() const { return v / double(StorageType(1) << K); }
+    explicit operator float() const noexcept{ return v / float(StorageType(1) << K); }
+    explicit operator double() const noexcept{ return v / double(StorageType(1) << K); }
 
-    friend FastFixed operator/(FastFixed a, int b) {
+    friend FastFixed operator/(FastFixed a, int b) noexcept{
         return FastFixed::from_raw(a.v / b);
     }
 
-    friend FastFixed operator*(FastFixed a, int b) {
+    friend FastFixed operator*(FastFixed a, int b) noexcept{
         return FastFixed::from_raw(a.v * b);
     }
 
-    friend FastFixed operator*(int a, FastFixed b) {
+    friend FastFixed operator*(int a, FastFixed b) noexcept{
         return b * a;
     }
 
     template<size_t N2, size_t K2>
-    explicit operator FastFixed<N2,K2>() const {
+    explicit operator FastFixed<N2,K2>() const noexcept{
         if constexpr (K2 >= K) {
             return FastFixed<N2,K2>::from_raw(static_cast<typename FastFixed<N2,K2>::StorageType>(v) << (K2 - K));
         } else {
@@ -67,7 +67,7 @@ struct FastFixed {
     }
 
     template<size_t N2, size_t K2>
-    explicit operator Fixed<N2,K2>() const {
+    explicit operator Fixed<N2,K2>() const noexcept{
         if constexpr (K2 >= K) {
             return Fixed<N2,K2>::from_raw(static_cast<typename Fixed<N2,K2>::StorageType>(v) << (K2 - K));
         } else {
@@ -120,28 +120,28 @@ FastFixed<N,K> operator/(FastFixed<N,K> a, FastFixed<N,K> b) {
 }
 
 template<size_t N, size_t K>
-FastFixed<N,K> &operator+=(FastFixed<N,K> &a, FastFixed<N,K> b) { return a = a + b; }
+FastFixed<N,K> &operator+=(FastFixed<N,K> &a, FastFixed<N,K> b) noexcept{ return a = a + b; }
 
 template<size_t N, size_t K>
-FastFixed<N,K> &operator-=(FastFixed<N,K> &a, FastFixed<N,K> b) { return a = a - b; }
+FastFixed<N,K> &operator-=(FastFixed<N,K> &a, FastFixed<N,K> b) noexcept{ return a = a - b; }
 
 template<size_t N, size_t K>
-FastFixed<N,K> &operator*=(FastFixed<N,K> &a, FastFixed<N,K> b) { return a = a * b; }
+FastFixed<N,K> &operator*=(FastFixed<N,K> &a, FastFixed<N,K> b) noexcept{ return a = a * b; }
 
 template<size_t N, size_t K>
-FastFixed<N,K> &operator/=(FastFixed<N,K> &a, FastFixed<N,K> b) { return a = a / b; }
+FastFixed<N,K> &operator/=(FastFixed<N,K> &a, FastFixed<N,K> b) noexcept{ return a = a / b; }
 
 template<size_t N, size_t K>
-FastFixed<N,K> operator-(FastFixed<N,K> x) { return FastFixed<N,K>::from_raw(-x.v); }
+FastFixed<N,K> operator-(FastFixed<N,K> x) noexcept{ return FastFixed<N,K>::from_raw(-x.v); }
 
 template<size_t N, size_t K>
-FastFixed<N,K> abs(FastFixed<N,K> x) {
+FastFixed<N,K> abs(FastFixed<N,K> x) noexcept{
     FastFixed<N,K> ret = x;
     if (ret.v < 0) ret.v = -ret.v;
     return ret;
 }
 
 template<size_t N, size_t K>
-std::ostream &operator<<(std::ostream &out, FastFixed<N,K> x) {
+std::ostream &operator<<(std::ostream &out, FastFixed<N,K> x) noexcept{
     return out << static_cast<double>(x);
 }

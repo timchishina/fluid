@@ -1,0 +1,22 @@
+Было: в simulation.hpp 156 строчка
+<ElementType& get(int x, int y, int dx, int dy) {
+    size_t i = static_cast<std::size_t>(std::ranges::find(deltas, std::make_pair(dx, dy)) -
+                                        deltas.begin());
+    assert(i < deltas.size());           
+    return v[x][y][i];
+}
+Стало: там же
+ElementType& get(int x, int y, int dx, int dy) {
+    size_t i = 0;
+    if (dx == -1) i = 0;
+    else if (dx == 1) i = 1;
+    else if (dy == -1) i = 2;            
+    else if (dy == 1) i = 3;        
+    assert(i < deltas.size());
+    return v[x][y][i];
+}
+
+Благодаря этим изменениям все работает быстрее, можете протестировать
+
+
+Добавление потоков в функции start в simulation1.hpp
